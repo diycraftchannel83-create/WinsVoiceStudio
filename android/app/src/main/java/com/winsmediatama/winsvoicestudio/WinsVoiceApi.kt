@@ -7,6 +7,10 @@ import com.google.firebase.auth.FirebaseAuth
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.tasks.await
+import androidx.media3.common.MediaItem
+import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
@@ -90,11 +94,30 @@ object WinsVoiceApi {
         }
     }
 
-    suspend fun generate(context: Context, request: GenerateVoiceRequest): GenerateVoiceResponse {
+    private suspend fun idToken(context: Context): String {
         val auth = firebaseAuth(context)
         if (auth.currentUser == null) auth.signInAnonymously().await()
-        val token = auth.currentUser?.getIdToken(false)?.await()?.token
+        return auth.currentUser?.getIdToken(false)?.await()?.token
             ?: error("Token Firebase tidak tersedia.")
+    }
+
+    suspend fun generate(context: Context, request: GenerateVoiceRequest): GenerateVoiceResponse {
+        val token = idToken(context)
         return api().generate("Bearer $token", UUID.randomUUID().toString(), request)
+    }
+
+    suspend fun createPlayer(context: Context, streamPath: String): ExoPlayer {
+        val token = idToken(context)
+        val baseUrl = BuildConfig.WINS_API_BASE_URL.trimEnd('/')
+        val dataSourceFactory = DefaultHttpDataSource.Factory()
+            .setDefaultRequestProperties(mapOf("Authorization" to "Bearer $token"))
+        val mediaSourceFactory = DefaultMediaSourceFactory(dataSourceFactory)
+        return ExoPlayer.Builder(context)
+            .setMediaSourceFactory(mediaSourceFactory)
+            .build()
+            .apply {
+                setMediaItem(MediaItem.fromUri(baseUrl + streamPath))
+                prepare()
+            }
     }
 }
