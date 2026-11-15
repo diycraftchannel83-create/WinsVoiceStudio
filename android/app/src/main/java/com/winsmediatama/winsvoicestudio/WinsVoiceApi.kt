@@ -4,6 +4,8 @@ import android.content.Context
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
 import com.google.firebase.auth.FirebaseAuth
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.tasks.await
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
@@ -81,7 +83,7 @@ object WinsVoiceApi {
             Retrofit.Builder()
                 .baseUrl(if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/")
                 .client(client)
-                .addConverterFactory(MoshiConverterFactory.create())
+                .addConverterFactory(MoshiConverterFactory.create(Moshi.Builder().addLast(KotlinJsonAdapterFactory()).build()))
                 .build()
                 .create(WinsVoiceService::class.java)
                 .also { service = it }
