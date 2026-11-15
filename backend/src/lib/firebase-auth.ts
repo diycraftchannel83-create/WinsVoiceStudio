@@ -8,7 +8,8 @@ type FirebaseClaims = {
   iat: number;
 };
 
-let cachedJwks: { keys: JsonWebKey[]; expiresAt: number } | null = null;
+type FirebaseJwk = JsonWebKey & { kid?: string };
+let cachedJwks: { keys: FirebaseJwk[]; expiresAt: number } | null = null;
 
 function decodeBase64Url(value: string): Uint8Array {
   const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
@@ -21,7 +22,7 @@ function decodeJsonPart<T>(part: string): T {
   return JSON.parse(new TextDecoder().decode(decodeBase64Url(part))) as T;
 }
 
-async function getJwks(): Promise<JsonWebKey[]> {
+async function getJwks(): Promise<FirebaseJwk[]> {
   if (cachedJwks && cachedJwks.expiresAt > Date.now()) return cachedJwks.keys;
 
   const response = await fetch(
@@ -29,7 +30,7 @@ async function getJwks(): Promise<JsonWebKey[]> {
   );
   if (!response.ok) throw new Error("FIREBASE_KEYS_UNAVAILABLE");
 
-  const data = await response.json() as { keys?: JsonWebKey[] };
+  const data = await response.json() as { keys?: FirebaseJwk[] };
   if (!data.keys?.length) throw new Error("FIREBASE_KEYS_EMPTY");
 
   cachedJwks = { keys: data.keys, expiresAt: Date.now() + 60 * 60 * 1000 };
