@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.onDispose
 import androidx.activity.ComponentActivity
@@ -99,6 +100,13 @@ private fun StudioScreen() {
     }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    LaunchedEffect(Unit) {
+        try {
+            creditBalance = WinsVoiceApi.getCredits(context)
+        } catch (_: Exception) {
+            // Keep the starter balance visible until backend configuration is complete.
+        }
+    }
     val styles = listOf("Natural", "Energetic", "Professional", "Friendly", "Cinematic")
     val charCount = script.trim().length
     val estimatedCredits = ((charCount + 499) / 500) * 10
