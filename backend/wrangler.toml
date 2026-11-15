@@ -1,0 +1,18 @@
+name = "winsvoicestudio-api"
+main = "src/index.ts"
+compatibility_date = "2026-11-15"
+
+[vars]
+APP_ENV = "development"
+MAX_TEXT_BYTES = "4500"
+MONTHLY_CHARACTER_CAP = "3000000"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "winsvoice-db"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "AUDIO_BUCKET"
+bucket_name = "winsvoice-audio"
