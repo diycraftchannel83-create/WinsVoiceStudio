@@ -108,3 +108,22 @@ export async function synthesizeMp3(
   const binary = atob(result.audioContent);
   return Uint8Array.from(binary, (char) => char.charCodeAt(0));
 }
+
+
+export async function listGoogleVoices(
+  env: {
+    GOOGLE_SERVICE_ACCOUNT_EMAIL?: string;
+    GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?: string;
+  },
+  languageCode?: string
+): Promise<unknown> {
+  const accessToken = await getGoogleAccessToken(env);
+  const endpoint = new URL("https://texttospeech.googleapis.com/v1/voices");
+  if (languageCode) endpoint.searchParams.set("languageCode", languageCode);
+
+  const response = await fetch(endpoint, {
+    headers: { authorization: `Bearer ${accessToken}` }
+  });
+  if (!response.ok) throw new Error(`GOOGLE_VOICE_LIST_FAILED_${response.status}`);
+  return response.json();
+}
