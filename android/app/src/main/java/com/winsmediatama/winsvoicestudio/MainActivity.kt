@@ -1,6 +1,11 @@
 package com.winsmediatama.winsvoicestudio
 
 import android.os.Bundle
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.PlayerView
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.onDispose
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -88,6 +93,10 @@ private fun StudioScreen() {
     var isGenerating by remember { mutableStateOf(false) }
     var creditBalance by remember { mutableIntStateOf(100) }
     var generatedAudio by remember { mutableStateOf<GenerateVoiceResponse?>(null) }
+    var audioPlayer by remember { mutableStateOf<ExoPlayer?>(null) }
+    DisposableEffect(audioPlayer) {
+        onDispose { audioPlayer?.release() }
+    }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val styles = listOf("Natural", "Energetic", "Professional", "Friendly", "Cinematic")
@@ -250,6 +259,7 @@ private fun StudioScreen() {
                             )
                             generatedAudio = result
                             creditBalance = result.credit_balance
+                            audioPlayer = WinsVoiceApi.createPlayer(context, result.stream_path)
                             notice = "Berhasil membuat audio MP3. ${result.credits_used} credit digunakan."
                         } catch (error: Exception) {
                             notice = error.message ?: "Gagal membuat audio. Periksa konfigurasi dan koneksi."
@@ -275,7 +285,14 @@ private fun StudioScreen() {
                     Text(audio.title, color = Color.White, fontWeight = FontWeight.SemiBold)
                     Text("ID: ${audio.audio_id}", color = Muted, fontSize = 10.sp)
                     Text("MP3 · ${audio.audio_bytes} bytes", color = Cyan, fontSize = 12.sp)
-                    Text("Audio tersimpan di cloud. Pemutar dan unduhan akan diaktifkan pada tahap berikutnya.", color = Muted, fontSize = 11.sp)
+                    audioPlayer?.let { player ->
+                        AndroidView(
+                            factory = { viewContext -> PlayerView(viewContext).apply { this.player = player } },
+                            update = { it.player = player },
+                            modifier = Modifier.fillMaxWidth().height(72.dp)
+                        )
+                    }
+                    Text("Audio diputar langsung dari penyimpanan cloud privat.", color = Muted, fontSize = 11.sp)
                 }
             }
         }
