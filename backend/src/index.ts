@@ -223,6 +223,19 @@ export default {
       return json({ ok: true, service: "winsvoicestudio-api", environment: env.APP_ENV });
     }
 
+    if (request.method === "GET" && url.pathname === "/v1/credits") {
+      try {
+        const claims = await authenticate(request, env);
+        await ensureUser(env, claims.sub, claims.email);
+        return json({ balance: await getBalance(env, claims.sub) });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "INTERNAL_ERROR";
+        const status = message === "UNAUTHORIZED" || message.startsWith("INVALID_TOKEN") ||
+          message.startsWith("TOKEN_") ? 401 : 503;
+        return json({ error: message }, status);
+      }
+    }
+
     if (request.method === "GET" && url.pathname === "/v1/voices") {
       try {
         await authenticate(request, env);
