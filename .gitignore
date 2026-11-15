@@ -1,0 +1,26 @@
+# Android / Gradle
+.gradle/
+**/build/
+local.properties
+.idea/
+*.iml
+*.jks
+*.keystore
+google-services.json
+
+# Node / Cloudflare
+node_modules/
+.wrangler/
+.dev.vars
+.env
+.env.*
+!.env.example
+dist/
+coverage/
+
+# Secrets
+*service-account*.json
+*credentials*.json
+*.pem
+*.p12
+*.key
