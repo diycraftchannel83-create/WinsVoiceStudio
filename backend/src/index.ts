@@ -1,5 +1,5 @@
 import { verifyFirebaseIdToken } from "./lib/firebase-auth";
-import { synthesizeMp3 } from "./lib/google-tts";
+import { listGoogleVoices, synthesizeMp3 } from "./lib/google-tts";
 
 export interface Env {
   DB: D1Database;
@@ -104,6 +104,14 @@ async function generateAudio(request: Request, env: Env): Promise<Response> {
   }
 
   const characterCount = Array.from(text).length;
+  const monthlyCap = Number(env.MONTHLY_CHARACTER_CAP || 3000000);
+  const monthlyUsage = await env.DB.prepare(
+    "SELECT COALESCE(SUM(character_count), 0) AS total FROM usage_logs WHERE status = 'success' AND strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now')"
+  ).first<{ total: number }>();
+  if ((monthlyUsage?.total ?? 0) + characterCount > monthlyCap) {
+    return json({ error: "MONTHLY_FREE_QUOTA_REACHED", monthlyCap }, 429);
+  }
+
   const credits = Math.max(1, Math.ceil(characterCount / 500) * 10);
   const deduction = await env.DB.prepare(
     "UPDATE user_credits SET balance = balance - ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ? AND balance >= ?"
@@ -170,6 +178,9 @@ async function generateAudio(request: Request, env: Env): Promise<Response> {
     if (stored) await env.AUDIO_BUCKET.delete(objectKey);
     await env.DB.batch([
       env.DB.prepare(
+        "DELETE FROM audio_files WHERE id = ? AND user_id = ?"
+      ).bind(audioId, claims.sub),
+      env.DB.prepare(
         "UPDATE user_credits SET balance = balance + ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?"
       ).bind(credits, claims.sub),
       env.DB.prepare(
@@ -210,6 +221,19 @@ export default {
 
     if (request.method === "GET" && url.pathname === "/v1/health") {
       return json({ ok: true, service: "winsvoicestudio-api", environment: env.APP_ENV });
+    }
+
+    if (request.method === "GET" && url.pathname === "/v1/voices") {
+      try {
+        await authenticate(request, env);
+        const languageCode = url.searchParams.get("languageCode") || undefined;
+        return json(await listGoogleVoices(env, languageCode));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "INTERNAL_ERROR";
+        const status = message === "UNAUTHORIZED" || message.startsWith("INVALID_TOKEN") ||
+          message.startsWith("TOKEN_") ? 401 : 503;
+        return json({ error: message }, status);
+      }
     }
 
     if (request.method === "POST" && url.pathname === "/v1/tts/generate") {
