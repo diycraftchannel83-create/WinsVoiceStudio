@@ -15,6 +15,7 @@ import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
 import retrofit2.http.Body
+import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.POST
 import java.util.UUID
@@ -30,6 +31,8 @@ data class GenerateVoiceRequest(
     val title: String
 )
 
+data class CreditBalanceResponse(val balance: Int)
+
 data class GenerateVoiceResponse(
     val audio_id: String,
     val title: String,
@@ -43,6 +46,9 @@ data class GenerateVoiceResponse(
 )
 
 private interface WinsVoiceService {
+    @GET("v1/credits")
+    suspend fun credits(@Header("Authorization") authorization: String): CreditBalanceResponse
+
     @POST("v1/tts/generate")
     suspend fun generate(
         @Header("Authorization") authorization: String,
@@ -99,6 +105,11 @@ object WinsVoiceApi {
         if (auth.currentUser == null) auth.signInAnonymously().await()
         return auth.currentUser?.getIdToken(false)?.await()?.token
             ?: error("Token Firebase tidak tersedia.")
+    }
+
+    suspend fun getCredits(context: Context): Int {
+        val token = idToken(context)
+        return api().credits("Bearer $token").balance
     }
 
     suspend fun generate(context: Context, request: GenerateVoiceRequest): GenerateVoiceResponse {
