@@ -29,6 +29,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -82,6 +85,11 @@ private fun StudioScreen() {
     var speed by remember { mutableFloatStateOf(1f) }
     var pitch by remember { mutableFloatStateOf(0f) }
     var notice by remember { mutableStateOf("") }
+    var isGenerating by remember { mutableStateOf(false) }
+    var creditBalance by remember { mutableIntStateOf(100) }
+    var generatedAudio by remember { mutableStateOf<GenerateVoiceResponse?>(null) }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val styles = listOf("Natural", "Energetic", "Professional", "Friendly", "Cinematic")
     val charCount = script.trim().length
     val estimatedCredits = ((charCount + 499) / 500) * 10
@@ -105,7 +113,7 @@ private fun StudioScreen() {
             ) {
                 Column(Modifier.padding(horizontal = 14.dp, vertical = 9.dp)) {
                     Text("CREDIT", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    Text("100", color = Mint, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                    Text(creditBalance.toString(), color = Mint, fontSize = 19.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -209,17 +217,67 @@ private fun StudioScreen() {
 
         Button(
             onClick = {
-                notice = if (script.isBlank()) "Masukkan naskah terlebih dahulu." else
-                    "Tampilan siap. Hubungkan Firebase dan Cloudflare Worker untuk mengaktifkan pembuatan audio."
+                if (script.isBlank()) {
+                    notice = "Masukkan naskah terlebih dahulu."
+                } else if (!isGenerating) {
+                    isGenerating = true
+                    notice = "Menghubungkan ke WinsVoice API..."
+                    scope.launch {
+                        try {
+                            val languageCode = when {
+                                language.startsWith("English") -> "en-US"
+                                language.startsWith("Arabic") -> "ar-XA"
+                                language.startsWith("Malay") -> "ms-MY"
+                                else -> "id-ID"
+                            }
+                            val voiceName = when (languageCode) {
+                                "en-US" -> "en-US-Standard-C"
+                                "ar-XA" -> "ar-XA-Standard-A"
+                                "ms-MY" -> "ms-MY-Standard-A"
+                                else -> "id-ID-Standard-A"
+                            }
+                            val result = WinsVoiceApi.generate(
+                                context,
+                                GenerateVoiceRequest(
+                                    text = script.trim(),
+                                    languageCode = languageCode,
+                                    voiceName = voiceName,
+                                    speakingRate = speed,
+                                    pitch = pitch,
+                                    preset = styles[selectedStyle].lowercase(),
+                                    title = script.trim().take(64)
+                                )
+                            )
+                            generatedAudio = result
+                            creditBalance = result.credit_balance
+                            notice = "Berhasil membuat audio MP3. ${result.credits_used} credit digunakan."
+                        } catch (error: Exception) {
+                            notice = error.message ?: "Gagal membuat audio. Periksa konfigurasi dan koneksi."
+                        } finally {
+                            isGenerating = false
+                        }
+                    }
+                }
             },
             modifier = Modifier.fillMaxWidth().height(54.dp),
             shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Cyan, contentColor = Ink)
         ) {
-            Text("GENERATE VOICE  →", fontWeight = FontWeight.ExtraBold)
+            Text(if (isGenerating) "GENERATING..." else "GENERATE VOICE  →", fontWeight = FontWeight.ExtraBold)
         }
         if (notice.isNotBlank()) {
-            Text(notice, color = Mint, fontSize = 12.sp)
+            Text(notice, color = if (notice.startsWith("Gagal") || notice.startsWith("Firebase") || notice.startsWith("URL")) Color(0xFFFF8A80) else Mint, fontSize = 12.sp)
+        }
+        generatedAudio?.let { audio ->
+            Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(18.dp)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("AUDIO BERHASIL DIBUAT", color = Mint, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text(audio.title, color = Color.White, fontWeight = FontWeight.SemiBold)
+                    Text("ID: ${audio.audio_id}", color = Muted, fontSize = 10.sp)
+                    Text("MP3 · ${audio.audio_bytes} bytes", color = Cyan, fontSize = 12.sp)
+                    Text("Audio tersimpan di cloud. Pemutar dan unduhan akan diaktifkan pada tahap berikutnya.", color = Muted, fontSize = 11.sp)
+                }
+            }
         }
         Text(
             "WinsVoiceStudio · AI Marketing Voice Studio",
