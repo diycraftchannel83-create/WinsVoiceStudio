@@ -9,6 +9,10 @@ android {
     compileSdk = 36
 
     defaultConfig {
+        buildConfigField("String", "WINS_API_BASE_URL", "\""+providers.gradleProperty("WINS_API_BASE_URL").orElse("https://YOUR-WORKER.workers.dev/").get()+"\"")
+        buildConfigField("String", "FIREBASE_API_KEY", "\""+providers.gradleProperty("FIREBASE_API_KEY").orElse("").get()+"\"")
+        buildConfigField("String", "FIREBASE_APP_ID", "\""+providers.gradleProperty("FIREBASE_APP_ID").orElse("").get()+"\"")
+        buildConfigField("String", "FIREBASE_PROJECT_ID", "\""+providers.gradleProperty("FIREBASE_PROJECT_ID").orElse("").get()+"\"")
         applicationId = "com.winsmediatama.winsvoicestudio"
         minSdk = 26
         targetSdk = 35
@@ -27,6 +31,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -44,4 +49,8 @@ dependencies {
     implementation("androidx.media3:media3-ui:1.7.1")
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-moshi:2.11.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation(platform("com.google.firebase:firebase-bom:34.0.0"))
+    implementation("com.google.firebase:firebase-auth")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.2")
 }
