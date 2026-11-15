@@ -123,16 +123,16 @@ async function generateAudio(request: Request, env: Env): Promise<Response> {
     return json({ error: "INSUFFICIENT_CREDITS", balance: await getBalance(env, claims.sub) }, 402);
   }
 
-  const transactionId = crypto.randomUUID();
-  await env.DB.prepare(
-    "INSERT INTO credit_transactions (id, user_id, amount, type, reference_id) VALUES (?, ?, ?, 'tts_debit', ?)"
-  ).bind(transactionId, claims.sub, -credits, idempotencyKey).run();
-
   const audioId = crypto.randomUUID();
   const objectKey = `users/${claims.sub}/${audioId}.mp3`;
   let stored = false;
 
   try {
+    const transactionId = crypto.randomUUID();
+    await env.DB.prepare(
+      "INSERT INTO credit_transactions (id, user_id, amount, type, reference_id) VALUES (?, ?, ?, 'tts_debit', ?)"
+    ).bind(transactionId, claims.sub, -credits, idempotencyKey).run();
+
     const audio = await synthesizeMp3(env, {
       text,
       languageCode,
